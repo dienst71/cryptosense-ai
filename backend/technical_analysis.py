@@ -19,29 +19,6 @@ def macd(s, fast=12, slow=26, sig=9):
 def bollinger(s, n=20, k=2.0):
     mid = sma(s, n); std = s.rolling(n).std()
     up = mid + k*std; lo = mid - k*std
-    return up, mid, lo, (s-lo
-cat > ~/Desktop/cryptosense/backend/technical_analysis.py << 'EOF'
-"""CryptoSense AI — Technical Analysis Engine"""
-import numpy as np
-import pandas as pd
-
-def sma(s, n): return s.rolling(n).mean()
-def ema(s, n): return s.ewm(span=n, adjust=False).mean()
-
-def rsi(s, n=14):
-    d = s.diff()
-    g = d.clip(lower=0).ewm(com=n-1, min_periods=n).mean()
-    l = (-d.clip(upper=0)).ewm(com=n-1, min_periods=n).mean()
-    return 100 - 100/(1 + g/l.replace(0, np.nan))
-
-def macd(s, fast=12, slow=26, sig=9):
-    m = ema(s,fast) - ema(s,slow)
-    signal = ema(m, sig)
-    return m, signal, m - signal
-
-def bollinger(s, n=20, k=2.0):
-    mid = sma(s, n); std = s.rolling(n).std()
-    up = mid + k*std; lo = mid - k*std
     return up, mid, lo, (s-lo)/(up-lo), (up-lo)/mid
 
 def atr(df, n=14):
@@ -154,8 +131,8 @@ def analyze(symbol, df):
     trending_up   = price > e50.iloc[-1] and e50.iloc[-1] > e200.iloc[-1]
     trending_down = price < e50.iloc[-1] and e50.iloc[-1] < e200.iloc[-1]
     atr_pct = float(atr14.iloc[-1]) / price
-    if adx_val >= 25 and trending_up:      regime = "Trending Bull"
-    elif adx_val >= 25 and trending_down:  regime = "Trending Bear"
+    if adx_val >= 25 and trending_up:       regime = "Trending Bull"
+    elif adx_val >= 25 and trending_down:   regime = "Trending Bear"
     elif adx_val < 20 and not bb_expanding: regime = "Ranging / Consolidating"
     elif atr_pct > 0.06 or bb_expanding:   regime = "High Volatility"
     else:                                   regime = "Transitional"
