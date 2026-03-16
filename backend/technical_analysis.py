@@ -2,6 +2,28 @@
 import numpy as np
 import pandas as pd
 
+def sma(s, n): return s.rolling(n).mean()
+def ema(s, n): return s.ewm(span=n, adjust=False).mean()
+
+def rsi(s, n=14):
+    d = s.diff()
+    g = d.clip(lower=0).ewm(com=n-1, min_periods=n).mean()
+    l = (-d.clip(upper=0)).ewm(com=n-1, min_periods=n).mean()
+    return 100 - 100/(1 + g/l.replace(0, np.nan))
+
+def macd(s, fast=12, slow=26, sig=9):
+    m = ema(s,fast) - ema(s,slow)
+    signal = ema(m, sig)
+    return m, signal, m - signal
+
+def bollinger(s, n=20, k=2.0):
+    mid = sma(s, n); std = s.rolling(n).std()
+    up = mid + k*std; lo = mid - k*std
+    return up, mid, lo, (s-lo
+cat > ~/Desktop/cryptosense/backend/technical_analysis.py << 'EOF'
+"""CryptoSense AI — Technical Analysis Engine"""
+import numpy as np
+import pandas as pd
 
 def sma(s, n): return s.rolling(n).mean()
 def ema(s, n): return s.ewm(span=n, adjust=False).mean()
@@ -46,21 +68,18 @@ def mfi(df, n=14):
     return 100 - 100/(1 + pos.rolling(n).sum()/neg.rolling(n).sum().replace(0,np.nan))
 
 def adx(df, n=14):
-    """Average Directional Index — measures trend strength (not direction).
-    ADX > 25 = strong trend, ADX < 20 = weak trend / ranging market.
-    Returns Series of ADX values."""
     h, l, c = df["high"], df["low"], df["close"]
     up   = h - h.shift(1)
     down = l.shift(1) - l
     plus_dm  = up.where((up > down) & (up > 0), 0.0)
     minus_dm = down.where((down > up) & (down > 0), 0.0)
     tr_s  = atr(df, n)
-    plus_di  = 100 * ema(plus_dm, n)  / tr_s.replace(0, np.nan)
+    plus_di  = 100 * ema(plus_dm, n) / tr_s.replace(0, np.nan)
     minus_di = 100 * ema(minus_dm, n) / tr_s.replace(0, np.nan)
     dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
     return ema(dx, n)
 
-
+def parabolic_sar(df, af0=0.02, af_step=0.02, af_max=0.2):
     c,h,l = df["close"].values, df["high"].values, df["low"].values
     n = len(c); sar = np.zeros(n); ep = np.zeros(n); af = af0; bull = True
     sar[0]=l[0]; ep[0]=h[0]
@@ -89,11 +108,11 @@ def detect_patterns(df):
     if rng>0 and body/rng<0.1: pats.append(("Doji","neutral",0.55))
     if lw>body*2 and uw<body*0.5: pats.append(("Hammer","bullish",0.70))
     if uw>body*2 and lw<body*0.5 and c["close"]<c["open"]: pats.append(("Shooting Star","bearish",0.68))
-    if (p1["close"]<p1["open"] and c["close"]>c["open"]
-            and c["open"]<p1["close"] and c["close"]>p1["open"]):
+    if (p1["close"]<p1["open"] and c["close"]>c["open"] and
+        c["open"]<p1["close"] and c["close"]>p1["open"]):
         pats.append(("Bullish Engulfing","bullish",0.78))
-    if (p1["close"]>p1["open"] and c["close"]<c["open"]
-            and c["open"]>p1["close"] and c["close"]<p1["open"]):
+    if (p1["close"]>p1["open"] and c["close"]<c["open"] and
+        c["open"]>p1["close"] and c["close"]<p1["open"]):
         pats.append(("Bearish Engulfing","bearish",0.78))
     return pats
 
@@ -121,7 +140,6 @@ def analyze(symbol, df):
     obv_s=obv(df); vwap_s=vwap(df); mfi14=mfi(df)
     stk,std=stochastic(df)
     adx14=adx(df)
-
     ema_cross = ("Golden Cross" if e9.iloc[-1]>e21.iloc[-1] and e9.iloc[-2]<=e21.iloc[-2]
                  else "Death Cross" if e9.iloc[-1]<e21.iloc[-1] and e9.iloc[-2]>=e21.iloc[-2]
                  else "Above 21 EMA" if e9.iloc[-1]>e21.iloc[-1] else "Below 21 EMA")
@@ -129,29 +147,18 @@ def analyze(symbol, df):
                  else "Bearish Crossover" if mh.iloc[-1]<0 and mh.iloc[-2]>=0
                  else "Bullish" if mh.iloc[-1]>0 else "Bearish")
     sup, res = find_sr(df)
-
-    # ── 4-State Regime Classifier ──────────────────────────────────────────────
-    # Uses ADX (trend strength) + Bollinger Bandwidth (volatility) + EMAs (direction)
-    # ADX > 25 = trending; ADX < 20 = ranging; BB width relative to 30-period avg
     adx_val = float(adx14.iloc[-1]) if not np.isnan(adx14.iloc[-1]) else 15.0
     bb_bw_now = float(bb_bw.iloc[-1])
     bb_bw_avg = float(bb_bw.rolling(30).mean().iloc[-1]) if len(bb_bw) >= 30 else bb_bw_now
-    bb_expanding = bb_bw_now > bb_bw_avg * 1.2    # 20% above 30-period average
+    bb_expanding = bb_bw_now > bb_bw_avg * 1.2
     trending_up   = price > e50.iloc[-1] and e50.iloc[-1] > e200.iloc[-1]
     trending_down = price < e50.iloc[-1] and e50.iloc[-1] < e200.iloc[-1]
     atr_pct = float(atr14.iloc[-1]) / price
-
-    if adx_val >= 25 and trending_up:
-        regime = "Trending Bull"         # Momentum + Breakout strategies favoured
-    elif adx_val >= 25 and trending_down:
-        regime = "Trending Bear"         # Breakout shorts favoured; mean reversion risky
-    elif adx_val < 20 and not bb_expanding:
-        regime = "Ranging / Consolidating"  # Mean Reversion favoured; Breakout/Momentum suppressed
-    elif atr_pct > 0.06 or bb_expanding:
-        regime = "High Volatility"       # All strategies get higher threshold; caution
-    else:
-        regime = "Transitional"          # ADX 20-25 zone — indeterminate, use reduced confidence
-
+    if adx_val >= 25 and trending_up:      regime = "Trending Bull"
+    elif adx_val >= 25 and trending_down:  regime = "Trending Bear"
+    elif adx_val < 20 and not bb_expanding: regime = "Ranging / Consolidating"
+    elif atr_pct > 0.06 or bb_expanding:   regime = "High Volatility"
+    else:                                   regime = "Transitional"
     return {
         "symbol": symbol, "current_price": round(price, 8),
         "indicators": {
