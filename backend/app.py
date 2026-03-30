@@ -21,6 +21,7 @@ from notifications import (send_telegram, send_telegram_text, send_sms,
 from flask import Flask, jsonify, send_from_directory, request
 from signal_log import log_signal, log_kalshi, get_signals, get_kalshi_signals, get_stats, update_outcome, update_kalshi_outcome
 from funding_rates import apply_funding_filter, refresh_funding_rates, funding_summary, get_all_rates, THRESHOLD_BLOCK
+from momentum_scanner import scan_momentum, format_momentum_alert
 
 app = Flask(__name__)
 FRONTEND = os.path.join(os.path.dirname(__file__), '..', 'frontend')
@@ -30,6 +31,7 @@ _last_scan_result = {"scanned": 0, "alerts_sent": 0, "last_run": None, "signals"
 _last_heartbeat_sent = None     # tracks last successful Telegram send — dead man's switch
 _execution_halted = False       # volatility circuit breaker flag
 _halt_reason = ""               # reason for halt
+_last_momentum_scan = None
 
 STRATEGY_NAMES = {"1":"Momentum","2":"Mean Reversion","3":"Breakout","4":"Multi-Factor"}
 
@@ -197,6 +199,20 @@ def _run_scan():
             )
 
         _last_heartbeat_sent = _dt.datetime.now()
+
+    # Momentum scanner — runs every 15 min
+    global _last_momentum_scan
+    try:
+        import datetime as _dt2
+        if (_last_momentum_scan is None or
+                (_dt2.datetime.now() - _last_momentum_scan).total_seconds() > 900):
+            _last_momentum_scan = _dt2.datetime.now()
+            mo_alerts = scan_momentum()
+            if mo_alerts and _tg_configured():
+                for coin in mo_alerts[:3]:
+                    send_telegram_text(format_momentum_alert(coin))
+    except Exception:
+        pass
 
     _last_scan_result = {
         "scanned":          len(coins),
