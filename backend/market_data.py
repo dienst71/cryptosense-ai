@@ -24,6 +24,7 @@ COIN_TIERS = {
     "AVAX": 2, "LINK": 2, "ADA":  2, "DOT":  2, "LTC":  2,
     "DOGE": 2, "MATIC":2, "UNI":  2, "XLM":  2, "HBAR": 2,
     "ARB":  2, "INJ":  2, "SUI":  2, "ATOM": 2, "OP":   2,
+    "CHZ":  2, "PSG":  2, "BAR":  2,
 }
 
 def get_coin_tier(symbol: str) -> int:
@@ -51,6 +52,9 @@ COINS = {
     "LTC":  {"name":"Litecoin",  "cg_id":"litecoin",            "vol":0.045,"cap":6.6e9,  "sector":"Payments"},
     "ATOM": {"name":"Cosmos",    "cg_id":"cosmos",              "vol":0.070,"cap":3.8e9,  "sector":"Layer 0"},
     "OP":   {"name":"Optimism",  "cg_id":"optimism",            "vol":0.088,"cap":2.9e9,  "sector":"Layer 2"},
+    "CHZ":  {"name":"Chiliz",    "cg_id":"chiliz",              "vol":0.120,"cap":1.1e9,  "sector":"Fan Token"},
+    "PSG":  {"name":"PSG Fan Token","cg_id":"paris-saint-germain-fan-token","vol":0.150,"cap":5.0e7,"sector":"Fan Token"},
+    "BAR":  {"name":"FC Barcelona Fan Token","cg_id":"fc-barcelona-fan-token","vol":0.140,"cap":4.0e7,"sector":"Fan Token"},
 }
 
 # ── UPDATED March 7 2026 fallback prices ─────────────────────────────────────
@@ -61,6 +65,7 @@ FALLBACK = {
     "AVAX": 15.5, "LINK": 10.2, "MATIC": 0.32, "UNI": 5.80,
     "DOGE": 0.095,"ARB": 0.38,  "INJ": 9.50,   "SUI": 1.85,
     "DOT":  3.80, "LTC": 72.0,  "ATOM": 3.60,  "OP":  0.72,
+    "CHZ":  0.065, "PSG":  2.10,  "BAR":  2.40,
 }
 
 _cache = {}

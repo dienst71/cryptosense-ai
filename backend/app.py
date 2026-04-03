@@ -22,6 +22,8 @@ from flask import Flask, jsonify, send_from_directory, request
 from signal_log import log_signal, log_kalshi, get_signals, get_kalshi_signals, get_stats, update_outcome, update_kalshi_outcome
 from funding_rates import apply_funding_filter, refresh_funding_rates, funding_summary, get_all_rates, THRESHOLD_BLOCK
 from momentum_scanner import scan_momentum, format_momentum_alert
+from catalyst_calendar import get_upcoming_catalysts, get_catalyst_coins
+from catalyst_calendar import get_upcoming_catalysts, get_catalyst_coins
 from momentum_scanner import scan_momentum, format_momentum_alert
 
 app = Flask(__name__)
@@ -78,7 +80,7 @@ def _run_scan():
     now_str = now_dt.strftime('%H:%M UTC')
     date_str= now_dt.strftime('%a %b %-d')
 
-    coins  = ['BTC','ETH','XRP','XLM','HBAR','SOL','BNB','AVAX','LINK','ARB','SUI','INJ']
+    coins  = ['BTC','ETH','XRP','XLM','HBAR','SOL','BNB','AVAX','LINK','ARB','SUI','INJ','CHZ','PSG','BAR']
     prices = get_current_prices()
 
     # ── 1. Refresh funding rates ───────────────────────────────────────────────
@@ -317,7 +319,7 @@ def coin_analysis(symbol):
 
 @app.route('/api/signals/top')
 def top_signals():
-    coins  = ['BTC','ETH','XRP','XLM','HBAR','SOL','BNB','AVAX','LINK','ARB','SUI','INJ']
+    coins  = ['BTC','ETH','XRP','XLM','HBAR','SOL','BNB','AVAX','LINK','ARB','SUI','INJ','CHZ','PSG','BAR']
     prices = get_current_prices()
     results = []
     for sym in coins:
@@ -530,6 +532,15 @@ def regime_overview():
         except Exception:
             pass
     return jsonify({"regimes": results, "timestamp": __import__('datetime').datetime.now().isoformat()})
+
+# ── Catalyst Calendar API ────────────────────────────────────────────────────
+@app.route('/api/catalyst/upcoming')
+def catalyst_upcoming():
+    days = int(request.args.get('days', 90))
+    catalysts = get_upcoming_catalysts(days_ahead=days)
+    coin_catalysts = get_catalyst_coins()
+    return jsonify({"catalysts": catalysts, "coin_catalysts": coin_catalysts,
+                    "total": len(catalysts), "generated_at": __import__('datetime').datetime.now().isoformat()})
 
 # ── Signal Log API ────────────────────────────────────────────────────────────
 @app.route('/api/signal-log/signals')
