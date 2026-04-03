@@ -34,3 +34,4 @@ def get_catalyst_coins():
             if coin not in coin_catalysts: coin_catalysts[coin] = []
             coin_catalysts[coin].append({"title":c["title"],"date":c["date"],"days_until":days_until,"impact":c["impact"],"direction":c["direction"]})
     return coin_catalysts
+# v24 catalyst calendar
