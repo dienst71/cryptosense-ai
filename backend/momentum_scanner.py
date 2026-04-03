@@ -1,9 +1,4 @@
-"""
-CryptoSense AI — Micro-Cap Momentum Scanner
-Monitors CoinGecko trending + top gainers every 15 minutes.
-Fires Telegram alert when a coin shows explosive momentum.
-Position sizing: $50-100 max. High risk, high reward.
-"""
+
 import urllib.request, json, time, datetime
 
 COINGECKO_TOP_GAINERS = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=percent_change_24h&per_page=50&page=1&price_change_percentage=1h,24h"
@@ -36,15 +31,12 @@ def _clean_alerted():
 def scan_momentum():
     _clean_alerted()
     alerts = []
-
     trending_data = _fetch(COINGECKO_TRENDING)
     trending_ids = set()
     if trending_data:
         for item in trending_data.get("coins", []):
             trending_ids.add(item.get("item", {}).get("id", ""))
-
     coins = _fetch(COINGECKO_TOP_GAINERS) or []
-
     for c in coins:
         try:
             ticker     = c.get("symbol", "").upper()
@@ -55,12 +47,10 @@ def scan_momentum():
             volume     = float(c.get("total_volume") or 0)
             move_1h    = float(c.get("price_change_percentage_1h_in_currency") or 0)
             move_24h   = float(c.get("price_change_percentage_24h") or 0)
-
             if ticker in _alerted: continue
             if market_cap > MAX_MARKET_CAP and market_cap != 0: continue
             if volume < MIN_VOLUME: continue
             if move_1h < MIN_1H_MOVE and move_24h < MIN_24H_MOVE: continue
-
             is_trending = coin_id in trending_ids
             score = 0
             if move_1h >= 30:    score += 3
@@ -72,7 +62,6 @@ def scan_momentum():
             if is_trending:      score += 2
             if volume > 10_000_000: score += 1
             if score < 2: continue
-
             alerts.append({
                 "ticker": ticker, "name": name, "coin_id": coin_id,
                 "price": price, "market_cap": market_cap, "volume_24h": volume,
@@ -80,30 +69,29 @@ def scan_momentum():
                 "is_trending": is_trending, "score": score,
                 "url": f"https://www.coingecko.com/en/coins/{coin_id}",
                 "suggested_size": "$50-100",
-                "risk": "HIGH — momentum trade, quick in/out only",
+                "risk": "HIGH - momentum trade, quick in/out only",
                 "scanned_at": datetime.datetime.now().isoformat(),
             })
             _alerted.add(ticker)
             _alerted_ttl[ticker] = time.time()
         except Exception:
             continue
-
     alerts.sort(key=lambda x: x["score"], reverse=True)
     return alerts[:5]
 
 def format_momentum_alert(coin):
-    trend_tag = " 🔥 TRENDING" if coin["is_trending"] else ""
+    trend_tag = " TRENDING" if coin["is_trending"] else ""
     mc  = f"${coin['market_cap']/1e6:.1f}M" if coin["market_cap"] else "unknown"
     vol = f"${coin['volume_24h']/1e6:.1f}M"
     return (
-        f"⚡ *MOMENTUM ALERT{trend_tag}*\n"
-        f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🪙 *{coin['name']}* (${coin['ticker']})\n"
-        f"💰 Price: ${coin['price']:.6g}\n"
-        f"📈 1h: *+{coin['move_1h']}%* · 24h: *+{coin['move_24h']}%*\n"
-        f"📊 Volume: {vol} · MCap: {mc}\n"
-        f"⚠️ *{coin['risk']}*\n"
-        f"💵 Suggested size: {coin['suggested_size']}\n"
-        f"🔗 [CoinGecko]({coin['url']})\n"
-        f"_This is a momentum alert, not a model signal._"
+        f"MOMENTUM ALERT{trend_tag}\n"
+        f"---\n"
+        f"*{coin['name']}* (${coin['ticker']})\n"
+        f"Price: ${coin['price']:.6g}\n"
+        f"1h: *+{coin['move_1h']}%* / 24h: *+{coin['move_24h']}%*\n"
+        f"Volume: {vol} / MCap: {mc}\n"
+        f"Risk: {coin['risk']}\n"
+        f"Size: {coin['suggested_size']}\n"
+        f"CoinGecko: {coin['url']}\n"
+        f"Momentum alert only - verify before entering"
     )
