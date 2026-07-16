@@ -23,6 +23,7 @@ from signal_log import log_signal, log_kalshi, get_signals, get_kalshi_signals, 
 from funding_rates import apply_funding_filter, refresh_funding_rates, funding_summary, get_all_rates, THRESHOLD_BLOCK
 from momentum_scanner import scan_momentum, format_momentum_alert
 from catalyst_calendar import get_upcoming_catalysts, get_catalyst_coins
+from trump_tracker import run_trump_scan, get_recent_posts as get_trump_posts, get_stats as get_trump_stats, init_db as init_trump_db
 from catalyst_calendar import get_upcoming_catalysts, get_catalyst_coins
 from momentum_scanner import scan_momentum, format_momentum_alert
 
@@ -35,6 +36,7 @@ _last_heartbeat_sent = None     # tracks last successful Telegram send — dead 
 _execution_halted = False       # volatility circuit breaker flag
 _halt_reason = ""               # reason for halt
 _last_momentum_scan = None
+_last_trump_scan = None
 _last_momentum_scan = None
 
 STRATEGY_NAMES = {"1":"Momentum","2":"Mean Reversion","3":"Breakout","4":"Multi-Factor"}
@@ -532,6 +534,27 @@ def regime_overview():
         except Exception:
             pass
     return jsonify({"regimes": results, "timestamp": __import__('datetime').datetime.now().isoformat()})
+
+# ── Trump Tracker API ────────────────────────────────────────────────────────
+@app.route('/api/trump/posts')
+def trump_posts():
+    limit = int(request.args.get('limit', 20))
+    posts = get_trump_posts(limit=limit)
+    stats = get_trump_stats()
+    return jsonify({"posts": posts, "stats": stats,
+                    "generated_at": __import__('datetime').datetime.now().isoformat()})
+
+@app.route('/api/trump/scan', methods=['POST'])
+def trump_scan_now():
+    try:
+        init_trump_db()
+        alerts = run_trump_scan(
+            send_telegram_fn=send_telegram_text if _tg_configured() else None,
+            tg_configured_fn=_tg_configured)
+        return jsonify({"ok": True, "new_alerts": len(alerts),
+                        "posts": get_trump_posts(10), "stats": get_trump_stats()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
 
 # ── Catalyst Calendar API ────────────────────────────────────────────────────
 @app.route('/api/catalyst/upcoming')
